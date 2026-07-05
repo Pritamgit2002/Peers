@@ -18,7 +18,9 @@ const ThemeImage = (props: Props) => {
   );
 };
 
-export default function Home() {
+export default async function Home() {
+  let apiMessage = "Could not reach API server";
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
@@ -31,6 +33,9 @@ export default function Home() {
           height={38}
           priority
         />
+        <p className={styles.apiMessage}>
+          API response: <code>{apiMessage}</code>
+        </p>
         <ol>
           <li>
             Get started by editing <code>apps/web/app/page.tsx</code>
