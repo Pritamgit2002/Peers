@@ -1,14 +1,16 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { db } from "../db/index.js";
+import { db } from "../../db/index.js";
 import { desc, eq } from "drizzle-orm";
-import { messages } from "../db/schema.js";
+import { messages } from "../../db/schema.js";
 
 export const getAllMessages = async (req: Request, res: Response) => {
   try {
     const { conversation_id } = z_get_all_messages_query.parse(req.query);
 
     // conversation_id =  94623452834;
+
+    console.log("getAllMessages-->", conversation_id);
 
     const allMessages = await db
       .select()

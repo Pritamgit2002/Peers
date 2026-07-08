@@ -2,19 +2,22 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { FileText, Paperclip, UploadCloud, X } from "lucide-react";
+import { AlertCircle, FileText, Paperclip, UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { getFileId, type FileUploadState } from "@/lib/tus-upload";
 
 type FileDropzoneProps = {
   files: File[];
   onFilesChange: (files: File[]) => void;
+  uploadStates?: Record<string, FileUploadState>;
   disabled?: boolean;
 };
 
 export function FileDropzone({
   files,
   onFilesChange,
+  uploadStates = {},
   disabled,
 }: FileDropzoneProps) {
   const onDrop = useCallback(
@@ -79,29 +82,78 @@ export function FileDropzone({
       </div>
 
       {files.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {files.map((file, index) => (
-            <li
-              key={`${file.name}-${file.lastModified}-${index}`}
-              className={cn(
-                "flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs shadow-sm",
-                isDragActive && "ring-2 ring-primary/20",
-              )}
-            >
-              <FileText className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="max-w-[180px] truncate font-medium">
-                {file.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeFile(index)}
-                className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label={`Remove ${file.name}`}
+        <ul className="mt-3 flex flex-col gap-2">
+          {files.map((file, index) => {
+            const fileId = getFileId(file);
+            const uploadState = uploadStates[fileId];
+            const isUploading = uploadState?.status === "uploading";
+            const isError = uploadState?.status === "error";
+            const isComplete = uploadState?.status === "complete";
+
+            return (
+              <li
+                key={fileId}
+                className={cn(
+                  "rounded-xl border border-border bg-background px-3 py-2 text-xs shadow-sm",
+                  isDragActive && "ring-2 ring-primary/20",
+                  isError && "border-destructive/50 bg-destructive/5",
+                )}
               >
-                <X className="size-3" />
-              </button>
-            </li>
-          ))}
+                <div className="flex items-center gap-2">
+                  {isError ? (
+                    <AlertCircle
+                      className="size-3.5 shrink-0 text-destructive"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <FileText
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  )}
+
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {file.name}
+                  </span>
+
+                  <span className="shrink-0 text-muted-foreground">
+                    {isUploading
+                      ? `${uploadState.progress}%`
+                      : isComplete
+                        ? "Uploaded"
+                        : isError
+                          ? "Failed"
+                          : "Queued"}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    disabled={disabled}
+                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+
+                {isUploading ? (
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-200"
+                      style={{ width: `${uploadState.progress}%` }}
+                    />
+                  </div>
+                ) : null}
+
+                {isError && uploadState.error ? (
+                  <p className="mt-1.5 text-[11px] text-destructive">
+                    {uploadState.error}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </div>

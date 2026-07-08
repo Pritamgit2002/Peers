@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import express from "express";
 import { db, schema } from "./db/index.js";
 import { messagesRoutes } from "./routes/messages.js";
+import { filesRoutes } from "./routes/files.js";
 
 export const createApp = () => {
   const app = express();
@@ -53,6 +54,7 @@ export const createApp = () => {
   });
 
   app.use("/api/messages", messagesRoutes);
+  app.use("/files", filesRoutes);
 
   return app.listen(port);
 };

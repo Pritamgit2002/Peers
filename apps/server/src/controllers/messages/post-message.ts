@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Request, Response } from "express";
-import { db } from "../db/index.js";
-import { messages } from "../db/schema.js";
+import { db } from "../../db/index.js";
+import { messages } from "../../db/schema.js";
 
 export const postMessage = async (req: Request, res: Response) => {
   try {
@@ -18,13 +18,16 @@ export const postMessage = async (req: Request, res: Response) => {
       attachment_type,
     );
 
-    const message = await db.insert(messages).values({
-      conversationId: conversation_id,
-      senderId: sender_id,
-      content,
-      attachmentKey: attachment_key || "",
-      attachmentType: attachment_type || "",
-    });
+    const [message] = await db
+      .insert(messages)
+      .values({
+        conversationId: conversation_id,
+        senderId: sender_id,
+        content,
+        attachmentKey: attachment_key || "",
+        attachmentType: attachment_type || "",
+      })
+      .returning();
 
     return res.status(201).json({ message });
   } catch (error) {

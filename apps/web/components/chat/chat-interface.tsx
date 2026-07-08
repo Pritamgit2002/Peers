@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, ShieldCheck } from "lucide-react";
 import { useGetMessages, usePostMessage } from "@/hooks/api/messages";
-import { handleFilesUpload } from "@/lib/handle-files";
+import type { UploadedFile } from "@/lib/tus-upload";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 
@@ -37,15 +37,15 @@ export function ChatInterface({
     return [...list].reverse();
   }, [data?.messages]);
 
-  const handleSend = (content: string, files: File[]) => {
-    if (files.length > 0) {
-      handleFilesUpload(files);
-    }
+  const handleSend = (content: string, attachments: UploadedFile[]) => {
+    const primaryAttachment = attachments[0];
 
     sendMessage({
       conversation_id: conversationId,
       sender_id: senderId,
       content: content || undefined,
+      attachment_key: primaryAttachment?.key,
+      attachment_type: primaryAttachment?.type,
     });
   };
 
@@ -85,7 +85,11 @@ export function ChatInterface({
         error={error}
       />
 
-      <ChatInput onSend={handleSend} isSending={isSending} />
+      <ChatInput
+        conversationId={conversationId}
+        onSend={handleSend}
+        isSending={isSending}
+      />
     </section>
   );
 }

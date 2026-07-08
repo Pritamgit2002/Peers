@@ -1,39 +1,175 @@
 "use client";
 
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { Loader2, SendHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  createTusUpload,
+  getFileId,
+  type FileUploadState,
+  type UploadedFile,
+} from "@/lib/tus-upload";
 import { FileDropzone } from "./file-dropzone";
+import type * as tus from "tus-js-client";
 
 type ChatInputProps = {
-  onSend: (content: string, files: File[]) => void;
+  conversationId: number;
+  onSend: (content: string, attachments: UploadedFile[]) => void;
   isSending?: boolean;
   disabled?: boolean;
 };
 
-export function ChatInput({ onSend, isSending, disabled }: ChatInputProps) {
+export function ChatInput({
+  conversationId,
+  onSend,
+  isSending,
+  disabled,
+}: ChatInputProps) {
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [uploadStates, setUploadStates] = useState<
+    Record<string, FileUploadState>
+  >({});
+
+  const uploadsRef = useRef<Map<string, tus.Upload>>(new Map());
+  const completedUploadsRef = useRef<Set<string>>(new Set());
+
+  const hasPendingUploads = files.some((file) => {
+    const state = uploadStates[getFileId(file)];
+    return !state || state.status === "uploading";
+  });
+
+  const hasUploadErrors = files.some(
+    (file) => uploadStates[getFileId(file)]?.status === "error",
+  );
 
   const canSend =
-    !disabled && !isSending && (content.trim().length > 0 || files.length > 0);
+    !disabled &&
+    !isSending &&
+    !hasPendingUploads &&
+    !hasUploadErrors &&
+    (content.trim().length > 0 || files.length > 0);
+
+  const startUpload = useCallback(
+    (file: File) => {
+      const fileId = getFileId(file);
+
+      if (uploadsRef.current.has(fileId)) {
+        return;
+      }
+
+      setUploadStates((previous) => ({
+        ...previous,
+        [fileId]: { status: "uploading", progress: 0 },
+      }));
+
+      const upload = createTusUpload(file, conversationId, {
+        onProgress(progress) {
+          setUploadStates((previous) => ({
+            ...previous,
+            [fileId]: { status: "uploading", progress },
+          }));
+        },
+        onSuccess(result) {
+          uploadsRef.current.delete(fileId);
+          completedUploadsRef.current.add(fileId);
+          setUploadStates((previous) => ({
+            ...previous,
+            [fileId]: { status: "complete", progress: 100, result },
+          }));
+        },
+        onError(error) {
+          uploadsRef.current.delete(fileId);
+          setUploadStates((previous) => ({
+            ...previous,
+            [fileId]: {
+              status: "error",
+              progress: 0,
+              error: error.message || "Upload failed",
+            },
+          }));
+        },
+      });
+
+      uploadsRef.current.set(fileId, upload);
+    },
+    [conversationId],
+  );
+
+  useEffect(() => {
+    const activeFileIds = new Set(files.map(getFileId));
+
+    for (const [fileId, upload] of uploadsRef.current.entries()) {
+      if (!activeFileIds.has(fileId)) {
+        upload.abort(true);
+        uploadsRef.current.delete(fileId);
+        completedUploadsRef.current.delete(fileId);
+        setUploadStates((previous) => {
+          const next = { ...previous };
+          delete next[fileId];
+          return next;
+        });
+      }
+    }
+
+    for (const file of files) {
+      const fileId = getFileId(file);
+
+      if (
+        !uploadsRef.current.has(fileId) &&
+        !completedUploadsRef.current.has(fileId)
+      ) {
+        startUpload(file);
+      }
+    }
+  }, [files, startUpload]);
+
+  useEffect(() => {
+    return () => {
+      for (const upload of uploadsRef.current.values()) {
+        upload.abort(true);
+      }
+      uploadsRef.current.clear();
+    };
+  }, []);
+
+  const resetForm = () => {
+    for (const upload of uploadsRef.current.values()) {
+      upload.abort(true);
+    }
+    uploadsRef.current.clear();
+    completedUploadsRef.current.clear();
+    setContent("");
+    setFiles([]);
+    setUploadStates({});
+  };
+
+  const getAttachments = () =>
+    files
+      .map((file) => uploadStates[getFileId(file)]?.result)
+      .filter((attachment): attachment is UploadedFile => Boolean(attachment));
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!canSend) return;
 
-    onSend(content.trim(), files);
-    setContent("");
-    setFiles([]);
+    onSend(content.trim(), getAttachments());
+    resetForm();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (canSend) {
-        onSend(content.trim(), files);
-        setContent("");
-        setFiles([]);
+        onSend(content.trim(), getAttachments());
+        resetForm();
       }
     }
   };
@@ -46,6 +182,7 @@ export function ChatInput({ onSend, isSending, disabled }: ChatInputProps) {
       <FileDropzone
         files={files}
         onFilesChange={setFiles}
+        uploadStates={uploadStates}
         disabled={disabled || isSending}
       />
 
@@ -66,7 +203,11 @@ export function ChatInput({ onSend, isSending, disabled }: ChatInputProps) {
 
         <div className="flex items-center justify-between gap-3 border-t border-border/70 px-3 py-2">
           <p className="text-xs text-muted-foreground">
-            Press Enter to send, Shift + Enter for a new line.
+            {hasPendingUploads
+              ? "Uploading attachments..."
+              : hasUploadErrors
+                ? "Fix failed uploads before sending."
+                : "Press Enter to send, Shift + Enter for a new line."}
           </p>
 
           <Button
@@ -76,7 +217,7 @@ export function ChatInput({ onSend, isSending, disabled }: ChatInputProps) {
             aria-label="Send message"
             className="rounded-full px-3"
           >
-            {isSending ? (
+            {isSending || hasPendingUploads ? (
               <Loader2 className="animate-spin" aria-hidden="true" />
             ) : (
               <SendHorizontal aria-hidden="true" />
