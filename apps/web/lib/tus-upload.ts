@@ -45,6 +45,7 @@ export function getStorageKeyFromUploadUrl(url: string) {
 export function createTusUpload(
   file: File,
   conversationId: number,
+  senderId: number,
   handlers: {
     onProgress: (progress: number) => void;
     onSuccess: (result: UploadedFile) => void;
@@ -53,9 +54,11 @@ export function createTusUpload(
 ) {
   const upload = new tus.Upload(file, {
     endpoint: TUS_ENDPOINT,
-    chunkSize: 256 * 1024,
+    // Match server S3 min part size so mid-upload chunks become real multipart parts.
+    chunkSize: 5 * 1024 * 1024,
     metadata: {
       conversation_id: String(conversationId),
+      sender_id: String(senderId),
       filename: file.name,
       filetype: file.type || "application/octet-stream",
     },

@@ -1,14 +1,34 @@
-import { FileText } from "lucide-react";
 import type { TMessage } from "@/types/messages";
+import { MESSAGE_TYPE } from "@/constants/message-type";
 import { cn } from "@/lib/utils";
+import {
+  isAttachmentMessage,
+  MessageAttachment,
+} from "./message-attachment";
 
 type MessageBubbleProps = {
   message: TMessage;
   isOwnMessage: boolean;
 };
 
+function shouldShowTextContent(message: TMessage) {
+  const content = message.content.trim();
+
+  if (!content) {
+    return false;
+  }
+
+  if (!message.attachmentKey.trim()) {
+    return true;
+  }
+
+  const messageType = message.type || MESSAGE_TYPE.TEXT;
+  return messageType === MESSAGE_TYPE.TEXT;
+}
+
 export function MessageBubble({ message, isOwnMessage }: MessageBubbleProps) {
-  const hasAttachment = Boolean(message.attachmentKey);
+  const showAttachment = isAttachmentMessage(message);
+  const showText = shouldShowTextContent(message);
   const sentAt = new Date(message.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -41,26 +61,14 @@ export function MessageBubble({ message, isOwnMessage }: MessageBubbleProps) {
           </p>
         ) : null}
 
-        {message.content ? (
+        {showText ? (
           <p className="min-w-0 whitespace-pre-wrap wrap-break-word leading-relaxed">
             {message.content}
           </p>
         ) : null}
 
-        {hasAttachment ? (
-          <div
-            className={cn(
-              "mt-2 flex min-w-0 items-center gap-2 rounded-sm border px-3 py-2 text-xs",
-              isOwnMessage
-                ? "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/90"
-                : "border-border bg-muted/60 text-muted-foreground",
-            )}
-          >
-            <FileText className="size-4 shrink-0" aria-hidden="true" />
-            <span className="min-w-0 truncate">
-              {message.attachmentType || "Attached file"}
-            </span>
-          </div>
+        {showAttachment ? (
+          <MessageAttachment message={message} isOwnMessage={isOwnMessage} />
         ) : null}
 
         <time

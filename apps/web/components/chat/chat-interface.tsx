@@ -37,15 +37,20 @@ export function ChatInterface({
     return [...list].reverse();
   }, [data?.messages]);
 
-  const handleSend = (content: string, attachments: UploadedFile[]) => {
-    const primaryAttachment = attachments[0];
+  const invalidateMessages = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["useGetMessages", conversationId],
+    });
+  };
+
+  const handleSend = (content: string, _attachments: UploadedFile[]) => {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) return;
 
     sendMessage({
       conversation_id: conversationId,
       sender_id: senderId,
-      content: content || undefined,
-      attachment_key: primaryAttachment?.key,
-      attachment_type: primaryAttachment?.type,
+      content: trimmedContent,
     });
   };
 
@@ -87,7 +92,9 @@ export function ChatInterface({
 
       <ChatInput
         conversationId={conversationId}
+        senderId={senderId}
         onSend={handleSend}
+        onFileUploaded={invalidateMessages}
         isSending={isSending}
       />
     </section>

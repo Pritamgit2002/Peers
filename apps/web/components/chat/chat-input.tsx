@@ -21,14 +21,18 @@ import type * as tus from "tus-js-client";
 
 type ChatInputProps = {
   conversationId: number;
+  senderId: number;
   onSend: (content: string, attachments: UploadedFile[]) => void;
+  onFileUploaded?: () => void;
   isSending?: boolean;
   disabled?: boolean;
 };
 
 export function ChatInput({
   conversationId,
+  senderId,
   onSend,
+  onFileUploaded,
   isSending,
   disabled,
 }: ChatInputProps) {
@@ -70,7 +74,7 @@ export function ChatInput({
         [fileId]: { status: "uploading", progress: 0 },
       }));
 
-      const upload = createTusUpload(file, conversationId, {
+      const upload = createTusUpload(file, conversationId, senderId, {
         onProgress(progress) {
           setUploadStates((previous) => ({
             ...previous,
@@ -84,6 +88,7 @@ export function ChatInput({
             ...previous,
             [fileId]: { status: "complete", progress: 100, result },
           }));
+          onFileUploaded?.();
         },
         onError(error) {
           uploadsRef.current.delete(fileId);
@@ -100,7 +105,7 @@ export function ChatInput({
 
       uploadsRef.current.set(fileId, upload);
     },
-    [conversationId],
+    [conversationId, senderId, onFileUploaded],
   );
 
   useEffect(() => {

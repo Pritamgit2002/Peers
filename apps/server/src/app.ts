@@ -5,6 +5,7 @@ import express from "express";
 import { db, schema } from "./db/index.js";
 import { messagesRoutes } from "./routes/messages.js";
 import { filesRoutes } from "./routes/files.js";
+import { filesApiRoutes } from "./routes/files-api.js";
 
 export const createApp = () => {
   const app = express();
@@ -54,6 +55,7 @@ export const createApp = () => {
   });
 
   app.use("/api/messages", messagesRoutes);
+  app.use("/api/files", filesApiRoutes);
   app.use("/files", filesRoutes);
 
   return app.listen(port);
