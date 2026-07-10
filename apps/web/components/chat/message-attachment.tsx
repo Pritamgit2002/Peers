@@ -12,12 +12,14 @@ import {
   ImageIcon,
   Loader2,
   Music2,
+  Play,
   type LucideIcon,
 } from "lucide-react";
 import type { TMessage } from "@/types/messages";
 import { MESSAGE_TYPE, type MessageType } from "@/constants/message-type";
 import { getFileDownloadUrl } from "@/hooks/api/files";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type MessageAttachmentProps = {
   message: TMessage;
@@ -79,8 +81,8 @@ function getFileVisual(extension: string): AttachmentVisual {
       return {
         icon: FileText,
         label: "PDF document",
-        iconClassName: "text-rose-600",
-        iconBgClassName: "bg-rose-500/15",
+        iconClassName: "text-destructive",
+        iconBgClassName: "bg-destructive/10",
       };
     case "doc":
     case "docx":
@@ -89,8 +91,8 @@ function getFileVisual(extension: string): AttachmentVisual {
       return {
         icon: FileText,
         label: "Document",
-        iconClassName: "text-blue-600",
-        iconBgClassName: "bg-blue-500/15",
+        iconClassName: "text-foreground",
+        iconBgClassName: "bg-muted",
       };
     case "xls":
     case "xlsx":
@@ -98,8 +100,8 @@ function getFileVisual(extension: string): AttachmentVisual {
       return {
         icon: FileSpreadsheet,
         label: "Spreadsheet",
-        iconClassName: "text-emerald-600",
-        iconBgClassName: "bg-emerald-500/15",
+        iconClassName: "text-primary",
+        iconBgClassName: "bg-primary/10",
       };
     case "png":
     case "jpg":
@@ -110,8 +112,8 @@ function getFileVisual(extension: string): AttachmentVisual {
       return {
         icon: FileImage,
         label: "Image file",
-        iconClassName: "text-violet-600",
-        iconBgClassName: "bg-violet-500/15",
+        iconClassName: "text-primary",
+        iconBgClassName: "bg-primary/10",
       };
     case "zip":
     case "rar":
@@ -121,15 +123,15 @@ function getFileVisual(extension: string): AttachmentVisual {
       return {
         icon: FileArchive,
         label: "Archive",
-        iconClassName: "text-amber-600",
-        iconBgClassName: "bg-amber-500/15",
+        iconClassName: "text-muted-foreground",
+        iconBgClassName: "bg-muted",
       };
     default:
       return {
         icon: File,
         label: "File attachment",
-        iconClassName: "text-slate-600",
-        iconBgClassName: "bg-slate-500/15",
+        iconClassName: "text-muted-foreground",
+        iconBgClassName: "bg-muted",
       };
   }
 }
@@ -144,22 +146,22 @@ function getAttachmentVisual(message: TMessage): AttachmentVisual {
       return {
         icon: ImageIcon,
         label: "Image",
-        iconClassName: "text-violet-600",
-        iconBgClassName: "bg-violet-500/15",
+        iconClassName: "text-primary",
+        iconBgClassName: "bg-primary/10",
       };
     case MESSAGE_TYPE.AUDIO:
       return {
         icon: Music2,
         label: "Audio",
-        iconClassName: "text-fuchsia-600",
-        iconBgClassName: "bg-fuchsia-500/15",
+        iconClassName: "text-primary",
+        iconBgClassName: "bg-primary/10",
       };
     case MESSAGE_TYPE.VIDEO:
       return {
         icon: Film,
         label: "Video",
-        iconClassName: "text-orange-600",
-        iconBgClassName: "bg-orange-500/15",
+        iconClassName: "text-primary",
+        iconBgClassName: "bg-primary/10",
       };
     case MESSAGE_TYPE.FILE:
     default:
@@ -177,6 +179,7 @@ export function MessageAttachment({
   const filename = getFilename(message);
   const extension = getExtension(filename);
   const visual = getAttachmentVisual(message);
+  const messageType = resolveMessageType(message);
   const Icon = visual.icon;
 
   const handleDownload = async () => {
@@ -201,10 +204,59 @@ export function MessageAttachment({
     }
   };
 
+  if (messageType === MESSAGE_TYPE.AUDIO) {
+    return (
+      <div
+        className={cn(
+          "mt-2 min-w-64 rounded-xl border p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+          isOwnMessage
+            ? "border-primary-foreground/20 bg-primary-foreground/10"
+            : "border-border bg-muted/40",
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant={isOwnMessage ? "secondary" : "default"}
+            className="rounded-full"
+            aria-label={`Play ${filename}`}
+          >
+            <Play className="size-3.5 fill-current" aria-hidden="true" />
+          </Button>
+          <div className="flex h-10 flex-1 items-center gap-1" aria-hidden="true">
+            {[28, 44, 34, 58, 40, 66, 36, 52, 30, 46, 62, 38].map(
+              (height, index) => (
+                <span
+                  key={`${height}-${index}`}
+                  className={cn(
+                    "w-1 rounded-full",
+                    isOwnMessage ? "bg-primary-foreground/70" : "bg-primary/70",
+                  )}
+                  style={{ height: `${height}%` }}
+                />
+              ),
+            )}
+          </div>
+          <span
+            className={cn(
+              "text-xs font-medium",
+              isOwnMessage
+                ? "text-primary-foreground/75"
+                : "text-muted-foreground",
+            )}
+          >
+            0:24
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "mt-2 flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5",
+        "mt-2 flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
         isOwnMessage
           ? "border-primary-foreground/20 bg-primary-foreground/10"
           : "border-border bg-muted/50",
@@ -243,21 +295,26 @@ export function MessageAttachment({
               : "text-muted-foreground",
           )}
         >
-          {extension ? `${extension} · ` : ""}
+          {extension ? `${extension} / ` : ""}
           {visual.label}
+          {message.attachmentSize
+            ? ` / ${formatFileSize(message.attachmentSize)}`
+            : ""}
         </p>
         {downloadError ? (
           <p className="mt-1 text-[11px] text-destructive">{downloadError}</p>
         ) : null}
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={handleDownload}
         disabled={isDownloading}
         aria-label={`Download ${filename}`}
         className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+          "shrink-0 rounded-lg border opacity-0 transition-all duration-200 group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-60",
           isOwnMessage
             ? "border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/15"
             : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -268,11 +325,18 @@ export function MessageAttachment({
         ) : (
           <Download className="size-4" aria-hidden="true" />
         )}
-      </button>
+      </Button>
     </div>
   );
 }
 
 export function isAttachmentMessage(message: TMessage) {
   return Boolean(message.attachmentKey.trim());
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }

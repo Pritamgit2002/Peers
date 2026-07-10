@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { Loader2, SendHorizontal } from "lucide-react";
+import { Loader2, Paperclip, SendHorizontal, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   createTusUpload,
@@ -44,6 +44,7 @@ export function ChatInput({
 
   const uploadsRef = useRef<Map<string, tus.Upload>>(new Map());
   const completedUploadsRef = useRef<Set<string>>(new Set());
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const hasPendingUploads = files.some((file) => {
     const state = uploadStates[getFileId(file)];
@@ -60,6 +61,14 @@ export function ChatInput({
     !hasPendingUploads &&
     !hasUploadErrors &&
     (content.trim().length > 0 || files.length > 0);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 176)}px`;
+  }, [content]);
 
   const startUpload = useCallback(
     (file: File) => {
@@ -191,44 +200,68 @@ export function ChatInput({
         disabled={disabled || isSending}
       />
 
-      <div className="mt-3 rounded-2xl border border-input bg-background shadow-sm transition-all focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
+      <div className="mt-3 rounded-3xl border border-input bg-background/95 p-2 shadow-lg shadow-primary/5 transition-all duration-200 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
         <label htmlFor="chat-message" className="sr-only">
           Message
         </label>
-        <textarea
-          id="chat-message"
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Write a professional reply..."
-          rows={2}
-          disabled={disabled || isSending}
-          className="max-h-44 min-h-20 w-[96%] mx-auto bg-red-50 resize-none rounded-lg text-sm leading-6 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        />
+        <div className="flex items-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={disabled || isSending}
+            className="mb-1 shrink-0 rounded-full text-muted-foreground"
+            aria-label="Attach files"
+            onClick={() => {
+              document
+                .querySelector<HTMLInputElement>("[data-chat-file-input]")
+                ?.click();
+            }}
+          >
+            <Paperclip aria-hidden="true" />
+          </Button>
 
-        <div className="flex items-center justify-between gap-3 border-t border-border/70 px-3 py-2">
-          <p className="text-xs text-muted-foreground">
-            {hasPendingUploads
-              ? "Uploading attachments..."
-              : hasUploadErrors
-                ? "Fix failed uploads before sending."
-                : "Press Enter to send, Shift + Enter for a new line."}
-          </p>
+          <textarea
+            ref={textareaRef}
+            id="chat-message"
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Write a professional reply..."
+            rows={1}
+            disabled={disabled || isSending}
+            maxLength={1200}
+            className="max-h-44 min-h-11 flex-1 resize-none bg-transparent px-1 py-3 text-sm leading-6 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          />
 
           <Button
             type="submit"
-            size="sm"
+            size="icon-lg"
             disabled={!canSend}
             aria-label="Send message"
-            className="rounded-full px-3"
+            className="mb-0.5 rounded-full shadow-md shadow-primary/15 transition-transform duration-150 active:scale-95"
           >
             {isSending || hasPendingUploads ? (
               <Loader2 className="animate-spin" aria-hidden="true" />
             ) : (
               <SendHorizontal aria-hidden="true" />
             )}
-            Send
           </Button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border/70 px-3 py-2">
+          <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            {hasPendingUploads
+              ? "Uploading attachments..."
+              : hasUploadErrors
+                ? "Fix failed uploads before sending."
+                : "Enter to send, Shift + Enter for a new line."}
+          </p>
+
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {content.length}/1200
+          </p>
         </div>
       </div>
     </form>

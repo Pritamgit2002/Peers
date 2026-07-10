@@ -9,4 +9,9 @@ export type TMessage = {
   attachmentKey: string;
   attachmentType: string;
   createdAt: string;
+  senderName?: string;
+  senderRole?: string;
+  attachmentSize?: number;
+  status?: "sending" | "sent" | "failed";
+  clientId?: string;
 };

@@ -2,9 +2,17 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { AlertCircle, FileText, Paperclip, UploadCloud, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileText,
+  Paperclip,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getFileId, type FileUploadState } from "@/lib/tus-upload";
 
 type FileDropzoneProps = {
@@ -44,17 +52,23 @@ export function FileDropzone({
     <div
       {...getRootProps()}
       className={cn(
-        "rounded-2xl border border-dashed border-border bg-muted/30 p-3 transition-colors",
-        isDragActive && "border-primary bg-primary/5",
+        "rounded-3xl border border-dashed border-border bg-muted/25 p-3 transition-all duration-200",
+        "hover:border-primary/50 hover:bg-muted/40",
+        isDragActive && "scale-[1.01] border-primary bg-primary/5 shadow-lg shadow-primary/10",
         disabled && "opacity-60",
       )}
     >
-      <input {...getInputProps()} />
+      <input {...getInputProps()} data-chat-file-input />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-muted-foreground shadow-sm">
-            <UploadCloud className="size-4" aria-hidden="true" />
+          <div
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-2xl bg-background text-muted-foreground shadow-sm transition-transform duration-200",
+              isDragActive && "scale-105 text-foreground",
+            )}
+          >
+            <UploadCloud className="size-5" aria-hidden="true" />
           </div>
 
           <div>
@@ -74,7 +88,7 @@ export function FileDropzone({
           disabled={disabled}
           onClick={open}
           aria-label="Attach files"
-          className="rounded-full"
+          className="rounded-full shadow-sm"
         >
           <Paperclip aria-hidden="true" />
           Browse
@@ -95,6 +109,7 @@ export function FileDropzone({
                 key={fileId}
                 className={cn(
                   "rounded-xl border border-border bg-background px-3 py-2 text-xs shadow-sm",
+                  "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
                   isDragActive && "ring-2 ring-primary/20",
                   isError && "border-destructive/50 bg-destructive/5",
                 )}
@@ -103,6 +118,11 @@ export function FileDropzone({
                   {isError ? (
                     <AlertCircle
                       className="size-3.5 shrink-0 text-destructive"
+                      aria-hidden="true"
+                    />
+                  ) : isComplete ? (
+                    <CheckCircle2
+                      className="size-3.5 shrink-0 text-primary"
                       aria-hidden="true"
                     />
                   ) : (
@@ -116,7 +136,11 @@ export function FileDropzone({
                     {file.name}
                   </span>
 
-                  <span className="shrink-0 text-muted-foreground">
+                  <span className="hidden shrink-0 text-muted-foreground sm:inline">
+                    {formatFileSize(file.size)}
+                  </span>
+
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
                     {isUploading
                       ? `${uploadState.progress}%`
                       : isComplete
@@ -138,11 +162,14 @@ export function FileDropzone({
                 </div>
 
                 {isUploading ? (
-                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-200"
-                      style={{ width: `${uploadState.progress}%` }}
-                    />
+                  <div className="mt-2 space-y-1.5">
+                    <Skeleton className="h-1 rounded-full" />
+                    <div className="h-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-200"
+                        style={{ width: `${uploadState.progress}%` }}
+                      />
+                    </div>
                   </div>
                 ) : null}
 
@@ -158,4 +185,11 @@ export function FileDropzone({
       ) : null}
     </div>
   );
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
