@@ -7,6 +7,7 @@ import {
 } from "../../lib/r2.js";
 import { db } from "../../db/index.js";
 import { MESSAGE_TYPE, messages } from "../../db/schema.js";
+import { broadcastMessageCreated } from "../../websocket/broadcaster.js";
 import {
   buildAttachmentKey,
   decodeUploadIdFromUrl,
@@ -86,14 +87,21 @@ export function createTusServer() {
         };
       }
 
-      await db.insert(messages).values({
-        conversationId,
-        senderId,
-        type: MESSAGE_TYPE.FILE,
-        content: filename,
-        attachmentKey: storagePath,
-        attachmentType: "file",
-      });
+      const [message] = await db
+        .insert(messages)
+        .values({
+          conversationId,
+          senderId,
+          type: MESSAGE_TYPE.FILE,
+          content: filename,
+          attachmentKey: storagePath,
+          attachmentType: "file",
+        })
+        .returning();
+
+      if (message) {
+        broadcastMessageCreated(message);
+      }
 
       return {
         headers: {

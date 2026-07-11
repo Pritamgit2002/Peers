@@ -2,6 +2,7 @@ import { TMessage } from "@/types/messages";
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   type UseMutationOptions,
   type UseQueryOptions,
 } from "@tanstack/react-query";
@@ -86,10 +87,36 @@ export const useGetMessages = (
     "queryKey" | "queryFn"
   >,
 ) => {
-  console.log("params===?", params);
   return useQuery({
     queryKey: ["useGetMessages", params.conversation_id],
     queryFn: () => getMessages(params),
     ...options,
   });
+};
+
+export const useAppendMessageToCache = (conversationId: number) => {
+  const queryClient = useQueryClient();
+
+  return (message: TMessage) => {
+    queryClient.setQueryData<TGetMessagesResponse>(
+      ["useGetMessages", conversationId],
+      (currentData) => {
+        if (!currentData) {
+          return { messages: [message] };
+        }
+
+        const alreadyExists = currentData.messages.some(
+          (existingMessage) => existingMessage.id === message.id,
+        );
+
+        if (alreadyExists) {
+          return currentData;
+        }
+
+        return {
+          messages: [message, ...currentData.messages],
+        };
+      },
+    );
+  };
 };

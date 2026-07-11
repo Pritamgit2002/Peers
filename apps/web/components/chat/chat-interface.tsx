@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Radio, ShieldCheck } from "lucide-react";
-import { useGetMessages, usePostMessage } from "@/hooks/api/messages";
+import {
+  useAppendMessageToCache,
+  useGetMessages,
+  usePostMessage,
+} from "@/hooks/api/messages";
+import { useChatWebSocket } from "@/hooks/custom/use-chat-websocket";
 import type { UploadedFile } from "@/lib/tus-upload";
 import type { TMessage } from "@/types/messages";
 import { MESSAGE_TYPE } from "@/constants/message-type";
@@ -11,6 +16,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthControls } from "@/components/auth-controls";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { demoMessages } from "./mock-messages";
@@ -28,13 +34,58 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const queryClient = useQueryClient();
   const [optimisticMessages, setOptimisticMessages] = useState<TMessage[]>([]);
+  const [typingUserIds, setTypingUserIds] = useState<number[]>([]);
+  const appendMessageToCache = useAppendMessageToCache(conversationId);
 
-  const { data, isLoading, error, isFetching } = useGetMessages(
+  const { data, isLoading, error } = useGetMessages(
     { conversation_id: conversationId },
-    { enabled: !useDemoData, refetchInterval: 5000 },
+    { enabled: !useDemoData },
   );
 
   const { mutate: sendMessage, isPending: isSending } = usePostMessage();
+
+  const handleMessageCreated = useCallback(
+    (message: TMessage) => {
+      appendMessageToCache(message);
+
+      setOptimisticMessages((currentMessages) =>
+        currentMessages.filter(
+          (optimisticMessage) =>
+            !(
+              optimisticMessage.senderId === message.senderId &&
+              optimisticMessage.content === message.content &&
+              optimisticMessage.status === "sent"
+            ),
+        ),
+      );
+    },
+    [appendMessageToCache],
+  );
+
+  const handleTyping = useCallback(
+    ({ senderId: typingSenderId, isTyping }: { senderId: number; isTyping: boolean }) => {
+      if (typingSenderId === senderId) return;
+
+      setTypingUserIds((currentTypingUserIds) => {
+        if (isTyping) {
+          return currentTypingUserIds.includes(typingSenderId)
+            ? currentTypingUserIds
+            : [...currentTypingUserIds, typingSenderId];
+        }
+
+        return currentTypingUserIds.filter((id) => id !== typingSenderId);
+      });
+    },
+    [senderId],
+  );
+
+  const { status: connectionStatus, sendTyping } = useChatWebSocket({
+    conversationId,
+    senderId,
+    enabled: !useDemoData,
+    onMessageCreated: handleMessageCreated,
+    onTyping: handleTyping,
+  });
 
   const messages = useMemo(() => {
     const sourceMessages = useDemoData ? demoMessages : (data?.messages ?? []);
@@ -52,6 +103,14 @@ export function ChatInterface({
       queryKey: ["useGetMessages", conversationId],
     });
   };
+
+  const connectionLabel = useDemoData
+    ? "Live updates"
+    : connectionStatus === "connected"
+      ? "Live"
+      : connectionStatus === "connecting"
+        ? "Connecting"
+        : "Reconnecting";
 
   const handleSend = (content: string, _attachments: UploadedFile[]) => {
     const trimmedContent = content.trim();
@@ -105,14 +164,10 @@ export function ChatInterface({
                 : message,
             ),
           );
-          invalidateMessages();
-          window.setTimeout(() => {
-            setOptimisticMessages((currentMessages) =>
-              currentMessages.filter(
-                (message) => message.clientId !== clientId,
-              ),
-            );
-          }, 900);
+
+          if (connectionStatus !== "connected") {
+            invalidateMessages();
+          }
         },
         onError: () => {
           setOptimisticMessages((currentMessages) =>
@@ -139,7 +194,13 @@ export function ChatInterface({
                     TC
                   </AvatarFallback>
                 </Avatar>
-                <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card bg-primary" />
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card ${
+                    connectionStatus === "connected" || useDemoData
+                      ? "bg-primary"
+                      : "bg-muted-foreground"
+                  }`}
+                />
               </div>
 
               <div>
@@ -151,8 +212,16 @@ export function ChatInterface({
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    Online
+                    <span
+                      className={`size-1.5 rounded-full ${
+                        connectionStatus === "connected" || useDemoData
+                          ? "bg-primary"
+                          : "bg-muted-foreground"
+                      }`}
+                    />
+                    {connectionStatus === "connected" || useDemoData
+                      ? "Online"
+                      : "Offline"}
                   </span>
                   <span aria-hidden="true">&middot;</span>
                   <span>Support thread with shared files</span>
@@ -161,15 +230,20 @@ export function ChatInterface({
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-auto">
+              <AuthControls />
               <Badge
                 variant="outline"
                 className="bg-background/80 px-3 py-1 text-muted-foreground"
               >
                 <Radio
-                  className="animate-pulse text-primary"
+                  className={
+                    connectionStatus === "connected" || useDemoData
+                      ? "animate-pulse text-primary"
+                      : "text-muted-foreground"
+                  }
                   aria-hidden="true"
                 />
-                {isFetching && !isLoading ? "Syncing" : "Live updates"}
+                {connectionLabel}
               </Badge>
               <Badge
                 variant="muted"
@@ -189,6 +263,7 @@ export function ChatInterface({
           currentUserId={senderId}
           isLoading={!useDemoData && isLoading}
           error={useDemoData ? null : error}
+          typingUserIds={typingUserIds}
         />
 
         <ChatInput
@@ -196,6 +271,7 @@ export function ChatInterface({
           senderId={senderId}
           onSend={handleSend}
           onFileUploaded={invalidateMessages}
+          onTyping={sendTyping}
           isSending={isSending}
         />
       </section>

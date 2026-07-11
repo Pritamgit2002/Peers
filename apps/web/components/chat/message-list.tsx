@@ -13,6 +13,7 @@ type MessageListProps = {
   currentUserId: number;
   isLoading?: boolean;
   error?: Error | null;
+  typingUserIds?: number[];
 };
 
 export function MessageList({
@@ -20,6 +21,7 @@ export function MessageList({
   currentUserId,
   isLoading,
   error,
+  typingUserIds = [],
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +121,7 @@ export function MessageList({
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background shadow-sm">
             <MessageSquareText className="size-4" aria-hidden="true" />
           </div>
-          <TypingIndicator />
+          {typingUserIds.length > 0 ? <TypingIndicator /> : null}
         </div>
 
         <div ref={bottomRef} />

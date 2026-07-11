@@ -1,6 +1,7 @@
 import "./env.js";
-import { createApp } from "./app.js";
+import { createApp, startHttpServer } from "./app.js";
 import { db } from "./db/index.js";
+import { startWebSocketServer } from "./websocket/server.js";
 import { sql } from "drizzle-orm";
 
 async function connectDatabase(retries = 3) {
@@ -25,10 +26,15 @@ async function connectDatabase(retries = 3) {
 async function start() {
   await connectDatabase();
 
-  const server = createApp();
-  await new Promise<void>((resolve) => server.once("listening", resolve));
-  const port = (server.address() as { port: number }).port;
-  console.log(`✓ [server] http://localhost:${port}`);
+  const app = createApp();
+  const httpServer = startHttpServer(app);
+  await new Promise<void>((resolve) => httpServer.once("listening", resolve));
+
+  const httpPort = (httpServer.address() as { port: number }).port;
+  const wsServer = startWebSocketServer();
+
+  console.log(`✓ [server] http://localhost:${httpPort}`);
+  console.log(`✓ [ws] ws://localhost:${wsServer.port}/ws`);
 }
 
 start();

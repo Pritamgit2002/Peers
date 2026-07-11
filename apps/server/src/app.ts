@@ -1,15 +1,16 @@
 import "./env.js";
 import cors from "cors";
+import { clerkMiddleware } from "@clerk/express";
 import { sql } from "drizzle-orm";
-import express from "express";
+import express, { type Express } from "express";
 import { db, schema } from "./db/index.js";
 import { messagesRoutes } from "./routes/messages.js";
 import { filesRoutes } from "./routes/files.js";
 import { filesApiRoutes } from "./routes/files-api.js";
+import { usersRoutes } from "./routes/users.js";
 
-export const createApp = () => {
+export const createApp = (): Express => {
   const app = express();
-  const port = Number(process.env.PORT) || 3001;
   const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:3000";
 
   app.use(
@@ -18,6 +19,7 @@ export const createApp = () => {
       credentials: true,
     }),
   );
+  app.use(clerkMiddleware());
   app.use(express.json());
 
   app.get("/api/health", async (_, res) => {
@@ -38,25 +40,14 @@ export const createApp = () => {
     res.json(users);
   });
 
-  app.post("/api/users", async (req, res) => {
-    const { name, email } = req.body as { name?: string; email?: string };
-
-    if (!name?.trim() || !email?.trim()) {
-      res.status(400).json({ error: "name and email are required" });
-      return;
-    }
-
-    const [user] = await db
-      .insert(schema.users)
-      .values({ name: name.trim(), email: email.trim() })
-      .returning();
-
-    res.status(201).json(user);
-  });
-
   app.use("/api/messages", messagesRoutes);
   app.use("/api/files", filesApiRoutes);
   app.use("/files", filesRoutes);
+  app.use("/api/users", usersRoutes);
+  return app;
+};
 
+export const startHttpServer = (app: Express) => {
+  const port = Number(process.env.PORT) || 3001;
   return app.listen(port);
 };

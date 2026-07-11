@@ -5,13 +5,22 @@ import {
   serial,
   text,
   timestamp,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  clerkUserId: text("clerk_user_id").notNull().unique(),
+  imageUrl: text("image_url"), // Clerk provides a profile image URL
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+  deletedAt: timestamp("deleted_at"), // nullable, only set on soft delete
+  isActive: boolean("is_active").default(true).notNull(),
 });
 
 export const MESSAGE_TYPE = {

@@ -24,6 +24,7 @@ type ChatInputProps = {
   senderId: number;
   onSend: (content: string, attachments: UploadedFile[]) => void;
   onFileUploaded?: () => void;
+  onTyping?: (isTyping: boolean) => void;
   isSending?: boolean;
   disabled?: boolean;
 };
@@ -33,6 +34,7 @@ export function ChatInput({
   senderId,
   onSend,
   onFileUploaded,
+  onTyping,
   isSending,
   disabled,
 }: ChatInputProps) {
@@ -45,6 +47,8 @@ export function ChatInput({
   const uploadsRef = useRef<Map<string, tus.Upload>>(new Map());
   const completedUploadsRef = useRef<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const isTypingRef = useRef(false);
 
   const hasPendingUploads = files.some((file) => {
     const state = uploadStates[getFileId(file)];
@@ -69,6 +73,46 @@ export function ChatInput({
     textarea.style.height = "0px";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 176)}px`;
   }, [content]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current !== null) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+
+      if (isTypingRef.current) {
+        onTyping?.(false);
+      }
+    };
+  }, [onTyping]);
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+
+    if (!onTyping) return;
+
+    if (value.trim().length > 0) {
+      if (!isTypingRef.current) {
+        isTypingRef.current = true;
+        onTyping(true);
+      }
+
+      if (typingTimeoutRef.current !== null) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = window.setTimeout(() => {
+        isTypingRef.current = false;
+        onTyping(false);
+      }, 1_200);
+      return;
+    }
+
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      onTyping(false);
+    }
+  };
 
   const startUpload = useCallback(
     (file: File) => {
@@ -225,7 +269,7 @@ export function ChatInput({
             ref={textareaRef}
             id="chat-message"
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={(event) => handleContentChange(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Write a professional reply..."
             rows={1}
