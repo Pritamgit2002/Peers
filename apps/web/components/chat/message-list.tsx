@@ -75,7 +75,10 @@ export function MessageList({
       <div className="flex flex-1 items-center justify-center bg-muted/20 px-6 text-center">
         <Card className="max-w-md bg-background/80 p-6 shadow-lg shadow-primary/5">
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-border bg-muted/50 shadow-sm">
-            <Inbox className="size-7 text-muted-foreground" aria-hidden="true" />
+            <Inbox
+              className="size-7 text-muted-foreground"
+              aria-hidden="true"
+            />
           </div>
           <h2 className="mt-4 text-lg font-semibold tracking-tight">
             Start the conversation
@@ -90,7 +93,7 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="flex-1 bg-muted/20">
+    <ScrollArea className="flex-1 bg-muted/20 overflow-y-auto">
       <div className="flex min-h-full flex-col gap-1 px-4 py-5 sm:px-6">
         {messages.map((message, index) => {
           const previousMessage = messages[index - 1];

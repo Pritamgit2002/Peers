@@ -108,7 +108,9 @@ export function ChatInterface({
           invalidateMessages();
           window.setTimeout(() => {
             setOptimisticMessages((currentMessages) =>
-              currentMessages.filter((message) => message.clientId !== clientId),
+              currentMessages.filter(
+                (message) => message.clientId !== clientId,
+              ),
             );
           }, 900);
         },
@@ -163,7 +165,10 @@ export function ChatInterface({
                 variant="outline"
                 className="bg-background/80 px-3 py-1 text-muted-foreground"
               >
-                <Radio className="animate-pulse text-primary" aria-hidden="true" />
+                <Radio
+                  className="animate-pulse text-primary"
+                  aria-hidden="true"
+                />
                 {isFetching && !isLoading ? "Syncing" : "Live updates"}
               </Badge>
               <Badge
